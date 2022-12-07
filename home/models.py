@@ -6,7 +6,7 @@ from wagtail.admin.panels import FieldPanel
 
 
 class HomePage(Page):
-    body = RichTextField(blank=True)
+    body = RichTextField(blank=True, help_text='Content here ...')
 
     content_panels = Page.content_panels + [
         FieldPanel('body'),
