@@ -1,14 +1,17 @@
 from django.db import models
 
-# New imports added for ParentalKey, Orderable, InlinePanel
+# New imports added for ClusterTaggableManager, TaggedItemBase, MultiFieldPanel
+
 from modelcluster.fields import ParentalKey
+from modelcluster.contrib.taggit import ClusterTaggableManager
+from taggit.models import TaggedItemBase
 
 from wagtail.models import Page, Orderable
 from wagtail.fields import RichTextField
-from wagtail.admin.panels import FieldPanel, InlinePanel
+from wagtail.admin.panels import FieldPanel, InlinePanel, MultiFieldPanel
 from wagtail.search import index
 
-
+# ... (Keep the definition of BlogIndexPage)
 class BlogIndexPage(Page):
     intro = RichTextField(blank=True)
 
@@ -23,12 +26,21 @@ class BlogIndexPage(Page):
         context['blogpages'] = blogpages
         return context
 
-# ... (Keep the definition of BlogIndexPage, and update BlogPage:)
+
+class BlogPageTag(TaggedItemBase):
+    content_object = ParentalKey(
+        'BlogPage',
+        related_name='tagged_items',
+        on_delete=models.CASCADE
+    )
 
 class BlogPage(Page):
     date = models.DateField("Post date")
     intro = models.CharField(max_length=250)
     body = RichTextField(blank=True)
+    tags = ClusterTaggableManager(through=BlogPageTag, blank=True)
+
+     # ... (Keep the main_image method and search_fields definition)
 
     def main_image(self):
         gallery_item = self.gallery_images.first()
@@ -43,7 +55,10 @@ class BlogPage(Page):
     ]
 
     content_panels = Page.content_panels + [
-        FieldPanel('date'),
+        MultiFieldPanel([
+            FieldPanel('date'),
+            FieldPanel('tags'),
+        ], heading="Blog information"),
         FieldPanel('intro'),
         FieldPanel('body'),
         InlinePanel('gallery_images', label="Gallery images"),
@@ -60,3 +75,17 @@ class BlogPageGalleryImage(Orderable):
         FieldPanel('image'),
         FieldPanel('caption'),
     ]
+
+
+class BlogTagIndexPage(Page):
+
+    def get_context(self, request):
+
+        # Filter by tag
+        tag = request.GET.get('tag')
+        blogpages = BlogPage.objects.filter(tags__name=tag)
+
+        # Update template context
+        context = super().get_context(request)
+        context['blogpages'] = blogpages
+        return context
